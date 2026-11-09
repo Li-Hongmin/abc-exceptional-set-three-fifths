@@ -1,0 +1,36 @@
+name: verify
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install pulp==3.3.0
+      - name: Prepare a fresh working copy
+        run: cp -r verification work
+      - name: "Branch-and-bound certificate (777 leaves, exact Farkas multipliers) and the D = 13/22 point"
+        working-directory: work
+        env: {OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1'}
+        run: |
+          set -eo pipefail
+          python verify_certificate.py
+      - name: "Model comparison (no solver call)"
+        working-directory: work
+        env: {OPENBLAS_NUM_THREADS: '1', OMP_NUM_THREADS: '1'}
+        run: |
+          set -eo pipefail
+          python verify_certificate.py --compare-models
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-output
+          path: work/
+          retention-days: 14
